@@ -89,24 +89,19 @@ int my_str_resize(my_str_t* str, size_t new_size, char sym){
 }
 
 //! Створити стрічку із буфером вказаного розміру із переданої С-стрічки.
-int my_str_from_cstr(my_str_t* str, const char* cstr, size_t buf_size) {
+int my_str_from_cstr(my_str_t* str, const char* cstr) {
     size_t str_length = cstr_len(cstr);
 
     if (!str) {
         errno = EFAULT;
         return FAILURE;
     }
-    if (buf_size < str_length){
-        errno = EINVAL;
-        return FAILURE;
-    }
 
-    str->size_m = str_length;
-    if (buf_size <= 0)
-        str->capacity_m = str->size_m + 1;
-    else
-        str->capacity_m = buf_size;
-    str->data = malloc(buf_size);
+    size_t buf_size = cstr_len(cstr) + str->size_m;
+
+    str->size_m = str_length + str->size_m;
+    str->capacity_m = buf_size;
+    str->data = malloc(buf_size + 1);
 
     if (!str->data) {
         errno = ENOMEM;
