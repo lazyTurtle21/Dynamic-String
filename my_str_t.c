@@ -2,7 +2,6 @@
 
 #define FAILURE (-1)
 
-
 //! Рахує кількість символів у с-стрічці без останнього ('\0')
 static size_t cstr_len(const char* str) {
     if (!str) {
@@ -29,6 +28,62 @@ int my_str_create(my_str_t* str, size_t buf_size) {
     }
     str->size_m = 0;
     str->capacity_m = buf_size;
+
+    return EXIT_SUCCESS;
+}
+
+//! Збільшує буфер стрічки, із збереженням вмісту,
+//! якщо новий розмір більший за попередній,
+//! не робить нічого, якщо менший або рівний.
+int my_str_reserve(my_str_t* str, size_t buf_size){
+    if (str->capacity_m >= buf_size)
+        return EXIT_SUCCESS;
+
+    char* pointer = malloc(buf_size + 1);
+    if (!pointer){
+        errno = ENOMEM;
+        return FAILURE;
+    }
+    for (int i = 0; i < str->size_m; i++)
+        *(i + pointer) = *(str->data + i);
+
+    free(str->data);
+    str->data = pointer;
+    str->capacity_m = buf_size;
+    return EXIT_SUCCESS;
+}
+
+//! Робить буфер розміром, рівний необхідному:
+//! так, щоб capacity_m == size_t.
+int my_str_shrink_to_fit(my_str_t* str){
+    char* pointer = malloc(str->size_m);
+    if (!pointer){
+        errno = ENOMEM;
+        return FAILURE;
+    }
+    for (int i = 0; i < str->size_m; i++)
+        *(i + pointer) = *(str->data + i);
+
+    free(str->data);
+    str->data = pointer;
+    str->capacity_m = str->size_m;
+}
+
+//! Якщо new_size менший за поточний розмір -- просто
+//! відкидає зайві символи (зменшуючи size_m). Якщо
+//! більший -- збільшує фактичний розмір стрічки,
+//! встановлюючи нові символи рівними sym.
+int my_str_resize(my_str_t* str, size_t new_size, char sym){
+    if (new_size < str->size_m){
+        str->size_m = new_size;
+        return EXIT_SUCCESS;
+    }
+    if (new_size + str->size_m < str->capacity_m) {
+        if (my_str_reserve(str, new_size + str->size_m) == -1)
+            return FAILURE;
+    }
+    for (int i = str->size_m; i < new_size; i++)
+        *(i + str->data) = sym;
 
     return EXIT_SUCCESS;
 }
@@ -62,7 +117,6 @@ int my_str_from_cstr(my_str_t* str, const char* cstr, size_t buf_size) {
         *(str->data + i) = *(cstr + i);
     return EXIT_SUCCESS;
 }
-
 
 //! Звільнє пам'ять, знищуючи стрічку:
 void my_str_free(my_str_t* str){
@@ -135,10 +189,9 @@ int my_str_pushback(my_str_t* str, char c){
         errno = EFAULT;
         return FAILURE;
     }
-    if (str->capacity_m <= str->size_m){
-        errno = ENOMEM;
-        return FAILURE;
-    }
+    if (str->capacity_m <= str->size_m)
+        my_str_reserve(str, str->capacity_m * 2);
+
     *(str->data + str->size_m++) = c;
     return EXIT_SUCCESS;
 }
@@ -166,9 +219,11 @@ int my_str_copy(const my_str_t* from,  my_str_t* to, int reserve){
         return FAILURE;
     }
 
-    if (to->capacity_m < from->size_m){
-        errno = EINVAL;
-        return FAILURE;
+    if (to->capacity_m < from->size_m + to->size_m){
+        if (from->size_m + to->size_m< 2 * to->capacity_m)
+           my_str_reserve(to, to->capacity_m * 2);
+        else
+            my_str_reserve(to, to->size_m + from->size_m);
     }
 
     if (reserve == 1)
@@ -199,10 +254,13 @@ int my_str_insert_c(my_str_t* str, char c, size_t pos) {
         return FAILURE;
     }
 
-    if (str->size_m >= str->capacity_m || pos >= str->size_m){
+    if (pos >= str->size_m){
         errno = EINVAL;
         return FAILURE;
     }
+
+    if (str->size_m >= str->capacity_m)
+        my_str_reserve(str, str->capacity_m * 2);
 
     size_t size = str->size_m;
     while (size-- != pos)
@@ -220,10 +278,19 @@ int my_str_insert(my_str_t* str, const my_str_t* from, size_t pos){
         errno = EFAULT;
         return FAILURE;
     }
-    if ((str->size_m + from->size_m > str->capacity_m) ||(pos >= str->size_m)){
+
+    if (pos >= str->size_m){
         errno = EINVAL;
         return FAILURE;
     }
+
+    if (str->capacity_m < from->size_m + str->size_m){
+        if (from->size_m + str->size_m < 2 * str->capacity_m)
+            my_str_reserve(str, str->capacity_m * 2);
+        else
+            my_str_reserve(str, str->capacity_m + from->size_m);
+    }
+
 
     size_t size = str->size_m;
     size_t insert_size = from->size_m;
@@ -249,13 +316,20 @@ int my_str_insert_cstr(my_str_t* str, const char* from, size_t pos) {
         return FAILURE;
     }
 
-    if ((str->size_m + cstr_len(from)) > str->capacity_m || pos >= str->size_m){
+    size_t insert_size = cstr_len(from);
+
+    if (str->capacity_m < insert_size + str->size_m){
+        if (insert_size + str->size_m < 2 * str->capacity_m)
+            my_str_reserve(str, str->capacity_m * 2);
+        else
+            my_str_reserve(str, str->size_m + insert_size);
+    }
+    if (pos >= str->size_m){
         errno = EINVAL;
         return FAILURE;
     }
 
     size_t size = str->size_m;
-    size_t insert_size = cstr_len(from);
 
     while (size-- != pos)
         *(str->data + size + insert_size) = *(str->data + size);
@@ -279,6 +353,12 @@ int my_str_append(my_str_t* str, const my_str_t* from){
         errno = EINVAL;
         return FAILURE;
     }
+    if (str->capacity_m < from->size_m + str->size_m){
+        if (from->size_m + str->size_m < 2 * str->capacity_m)
+            my_str_reserve(str, str->capacity_m * 2);
+        else
+            my_str_reserve(str, str->size_m + from->size_m);
+    }
 
     for (size_t i = 0; i < from->size_m; i++)
         my_str_pushback(str, *(from->data + i));
@@ -298,6 +378,13 @@ int my_str_append_cstr(my_str_t* str, const char* from){
     if (str->capacity_m - str->size_m < len) {
         errno = EINVAL;
         return FAILURE;
+    }
+
+    if (str->capacity_m < len + str->size_m){
+        if (len + str->size_m < 2 * str->capacity_m)
+            my_str_reserve(str, str->capacity_m * 2);
+        else
+            my_str_reserve(str, str->size_m + len);
     }
 
     for (int i = 0; i < len; i++)
@@ -342,11 +429,17 @@ int my_str_substr(const my_str_t* str, my_str_t* to, size_t beg, size_t end){
     else
         stop = end;
 
-    if((to->capacity_m < (stop - beg)) || (beg >= str_size)){
+    if (beg >= str_size){
         errno = EINVAL;
         return FAILURE;
     }
 
+    if ((to->capacity_m < stop - beg + to->size_m)){
+        if (stop - beg + to->size_m < 2 * to->capacity_m)
+            my_str_reserve(to, to->capacity_m * 2);
+        else
+            my_str_reserve(to, to->size_m + stop - beg);
+    }
     my_str_clear(to);
     for (size_t i = beg; i < stop; i++)
         my_str_pushback(to, (char)my_str_getc(str, i));
@@ -511,4 +604,17 @@ int my_str_print(const my_str_t* str){
         printf("%c", *(str->data + i));
     printf("\n");
     return 0;
+}
+
+
+int main(){
+    my_str_t x;
+    //my_str_create(&x, 2);
+    my_str_from_cstr(&x, "ef", 2);
+    my_str_print(&x);
+    my_str_reserve(&x, 4);
+    my_str_print(&x);
+    my_str_append_cstr(&x, "5g");
+    printf("%i", x.capacity_m);
+    my_str_print(&x);
 }
