@@ -2,7 +2,6 @@
 
 #define FAILURE (-1)
 
-
 //! Рахує кількість символів у с-стрічці без останнього ('\0')
 static size_t cstr_len(const char* str) {
     if (!str) {
@@ -33,40 +32,110 @@ int my_str_create(my_str_t* str, size_t buf_size) {
     return EXIT_SUCCESS;
 }
 
-//! Створити стрічку із буфером вказаного розміру із переданої С-стрічки.
-int my_str_from_cstr(my_str_t* str, const char* cstr, size_t buf_size) {
-    size_t str_length = cstr_len(cstr);
-
-    if (!str) {
+//! Збільшує буфер стрічки, із збереженням вмісту,
+//! якщо новий розмір більший за попередній,
+//! не робить нічого, якщо менший або рівний.
+int my_str_reserve(my_str_t* str, size_t buf_size){
+    if (!str || !str->data) {
         errno = EFAULT;
         return FAILURE;
     }
-    if (buf_size < str_length){
-        errno = EINVAL;
-        return FAILURE;
-    }
 
-    str->size_m = str_length;
-    if (buf_size <= 0)
-        str->capacity_m = str->size_m + 1;
-    else
-        str->capacity_m = buf_size;
-    str->data = malloc(buf_size);
+    if (str->capacity_m >= buf_size)
+        return EXIT_SUCCESS;
 
-    if (!str->data) {
+    char* new_data = malloc(buf_size + 1);
+    if (!new_data){
         errno = ENOMEM;
         return FAILURE;
     }
+    for (int i = 0; i < str->size_m; i++)
+        *(i + new_data) = *(str->data + i);
 
-    for (size_t i = 0; i < str->size_m; i++)
-        *(str->data + i) = *(cstr + i);
+    free(str->data);
+    str->data = new_data;
+    str->capacity_m = buf_size;
     return EXIT_SUCCESS;
 }
 
+//! Робить буфер розміром, рівний необхідному:
+//! так, щоб capacity_m == size_t.
+int my_str_shrink_to_fit(my_str_t* str){
+    if (!str || !str->data) {
+        errno = EFAULT;
+        return FAILURE;
+    }
+
+    char* pointer = malloc(str->size_m);
+    if (!pointer){
+        errno = ENOMEM;
+        return FAILURE;
+    }
+    for (int i = 0; i < str->size_m; i++)
+        *(i + pointer) = *(str->data + i);
+
+    free(str->data);
+    str->data = pointer;
+    str->capacity_m = str->size_m;
+    return EXIT_SUCCESS;
+}
+
+//! Якщо new_size менший за поточний розмір -- просто
+//! відкидає зайві символи (зменшуючи size_m). Якщо
+//! більший -- збільшує фактичний розмір стрічки,
+//! встановлюючи нові символи рівними sym.
+int my_str_resize(my_str_t* str, size_t new_size, char sym){
+    if (!str || !str->data) {
+        errno = EFAULT;
+        return FAILURE;
+    }
+    size_t flag = str->size_m;
+
+    if (new_size <= str->size_m){
+        str->size_m = new_size;
+        return EXIT_SUCCESS;
+    }
+
+    if (new_size + str->size_m > str->capacity_m) {
+        if (my_str_reserve(str, new_size + str->size_m) == -1)
+            return FAILURE;
+        str->size_m = new_size + str->size_m;
+    } else{
+        str->size_m = new_size;
+    }
+
+    for (int i = flag; i < new_size; i++)
+        *(i + str->data) = sym;
+
+    return EXIT_SUCCESS;
+}
+
+//! Створити стрічку із переданої С-стрічки.
+int my_str_from_cstr(my_str_t* str, const char* cstr) {
+    int str_len = cstr_len(cstr);
+
+    if (!str || !cstr || !str->data) {
+        errno = EFAULT;
+        return FAILURE;
+    }
+
+    if (str->capacity_m < str_len + str->size_m){
+        if (str->size_m + str_len < 2 * str->capacity_m)
+            my_str_reserve(str, str->capacity_m * 2);
+        else
+            my_str_reserve(str, str->size_m + str_len);
+    }
+
+    str->size_m += str_len;
+    for (size_t i = 0; i < str_len; i++)
+        *(str->data + i) = *(cstr + i);
+
+    return EXIT_SUCCESS;
+}
 
 //! Звільнє пам'ять, знищуючи стрічку:
 void my_str_free(my_str_t* str){
-    if (!str)
+    if (!str || !str->data)
         return;
     free(str->data);
     str->data = 0;
@@ -76,7 +145,7 @@ void my_str_free(my_str_t* str){
 
 //! Повертає розмір стрічки:
 size_t my_str_size(const my_str_t* str) {
-    if (!str) {
+    if (!str || !str->data) {
         errno = EFAULT;
         return (size_t)((unsigned)FAILURE);
     }
@@ -85,7 +154,7 @@ size_t my_str_size(const my_str_t* str) {
 
 //! Повертає розмір буфера:
 size_t my_str_capacity(const my_str_t* str) {
-    if (!str) {
+    if (!str || !str->data) {
         errno = EFAULT;
         return (size_t)((unsigned)FAILURE);
     }
@@ -94,14 +163,14 @@ size_t my_str_capacity(const my_str_t* str) {
 
 //! Повертає булеве значення, чи стрічка порожня:
 int my_str_empty(const my_str_t* str){
-    if (!str || str->size_m == 0)
+    if (!str || !str->data || str->size_m == 0)
         return 1;
     return 0;
 }
 
 //! Повертає символ у вказаній позиції
 int my_str_getc(const my_str_t* str, size_t index) {
-    if (!str) {
+    if (!str || !str->data) {
         errno = EFAULT;
         return FAILURE;
     }
@@ -116,7 +185,7 @@ int my_str_getc(const my_str_t* str, size_t index) {
 
 //! Записує символ у вказану позиції (заміняючи той, що там був),
 int my_str_putc(my_str_t* str, size_t index, char c) {
-    if (!str) {
+    if (!str || !str->data) {
         errno = EFAULT;
         return FAILURE;
     }
@@ -131,21 +200,20 @@ int my_str_putc(my_str_t* str, size_t index, char c) {
 
 //! Додає символ в кінець.
 int my_str_pushback(my_str_t* str, char c){
-    if (!str) {
+    if (!str || !str->data) {
         errno = EFAULT;
         return FAILURE;
     }
-    if (str->capacity_m <= str->size_m){
-        errno = ENOMEM;
-        return FAILURE;
-    }
+    if (str->capacity_m <= str->size_m)
+        my_str_reserve(str, str->capacity_m * 2);
+
     *(str->data + str->size_m++) = c;
     return EXIT_SUCCESS;
 }
 
 //! Викидає символ з кінця.
 int my_str_popback(my_str_t* str){
-    if (!str) {
+    if (!str || !str->data) {
         errno = EFAULT;
         return FAILURE;
     }
@@ -161,14 +229,16 @@ int my_str_popback(my_str_t* str){
 //! то із тим же розміром буферу, що й вихідна,
 //! інакше -- із буфером мінімального достатнього розміру.
 int my_str_copy(const my_str_t* from,  my_str_t* to, int reserve){
-    if (!from || !to) {
+    if (!from || !from->data || !to || !to->data) {
         errno = EFAULT;
         return FAILURE;
     }
 
-    if (to->capacity_m < from->size_m){
-        errno = EINVAL;
-        return FAILURE;
+    if (to->capacity_m < from->size_m + to->size_m){
+        if (from->size_m + to->size_m< 2 * to->capacity_m)
+            my_str_reserve(to, to->capacity_m * 2);
+        else
+            my_str_reserve(to, to->size_m + from->size_m);
     }
 
     if (reserve == 1)
@@ -185,7 +255,7 @@ int my_str_copy(const my_str_t* from,  my_str_t* to, int reserve){
 
 //! Очищає стрічку -- робить її порожньою. Складність має бути О(1).
 void my_str_clear(my_str_t* str){
-    if (!str){
+    if (!str || !str->data){
         errno = EFAULT;
         return;
     }
@@ -194,15 +264,18 @@ void my_str_clear(my_str_t* str){
 
 //! Вставити символ у стрічку в заданій позиції, змістивши решту символів праворуч.
 int my_str_insert_c(my_str_t* str, char c, size_t pos) {
-    if (!str){
+    if (!str || !str->data){
         errno = EFAULT;
         return FAILURE;
     }
 
-    if (str->size_m >= str->capacity_m || pos >= str->size_m){
+    if (pos >= str->size_m){
         errno = EINVAL;
         return FAILURE;
     }
+
+    if (str->size_m >= str->capacity_m)
+        my_str_reserve(str, str->capacity_m * 2);
 
     size_t size = str->size_m;
     while (size-- != pos)
@@ -216,14 +289,23 @@ int my_str_insert_c(my_str_t* str, char c, size_t pos) {
 
 //! Вставити стрічку в заданій позиції, змістивши решту символів праворуч.
 int my_str_insert(my_str_t* str, const my_str_t* from, size_t pos){
-    if (!str || !from) {
+    if (!str || !str->data || !from || !from->data) {
         errno = EFAULT;
         return FAILURE;
     }
-    if ((str->size_m + from->size_m > str->capacity_m) ||(pos >= str->size_m)){
+
+    if (pos >= str->size_m){
         errno = EINVAL;
         return FAILURE;
     }
+
+    if (str->capacity_m < from->size_m + str->size_m){
+        if (from->size_m + str->size_m < 2 * str->capacity_m)
+            my_str_reserve(str, str->capacity_m * 2);
+        else
+            my_str_reserve(str, str->capacity_m + from->size_m);
+    }
+
 
     size_t size = str->size_m;
     size_t insert_size = from->size_m;
@@ -244,18 +326,25 @@ int my_str_insert(my_str_t* str, const my_str_t* from, size_t pos){
 
 //! Вставити C-стрічку в заданій позиції, змістивши решту символів праворуч.
 int my_str_insert_cstr(my_str_t* str, const char* from, size_t pos) {
-    if (!str || !from){
+    if (!str || !str->data || !from){
         errno = EFAULT;
         return FAILURE;
     }
 
-    if ((str->size_m + cstr_len(from)) > str->capacity_m || pos >= str->size_m){
+    size_t insert_size = cstr_len(from);
+
+    if (str->capacity_m < insert_size + str->size_m){
+        if (insert_size + str->size_m < 2 * str->capacity_m)
+            my_str_reserve(str, str->capacity_m * 2);
+        else
+            my_str_reserve(str, str->size_m + insert_size);
+    }
+    if (pos >= str->size_m){
         errno = EINVAL;
         return FAILURE;
     }
 
     size_t size = str->size_m;
-    size_t insert_size = cstr_len(from);
 
     while (size-- != pos)
         *(str->data + size + insert_size) = *(str->data + size);
@@ -270,14 +359,16 @@ int my_str_insert_cstr(my_str_t* str, const char* from, size_t pos) {
 
 //! Додати стрічку в кінець.
 int my_str_append(my_str_t* str, const my_str_t* from){
-    if (!str || !from) {
+    if (!str || !str->data || !from || !from->data) {
         errno = EFAULT;
         return FAILURE;
     }
 
-    if (str->capacity_m - str->size_m < from->size_m) {
-        errno = EINVAL;
-        return FAILURE;
+    if (str->capacity_m < from->size_m + str->size_m){
+        if (from->size_m + str->size_m < 2 * str->capacity_m)
+            my_str_reserve(str, str->capacity_m * 2);
+        else
+            my_str_reserve(str, str->size_m + from->size_m);
     }
 
     for (size_t i = 0; i < from->size_m; i++)
@@ -288,16 +379,18 @@ int my_str_append(my_str_t* str, const my_str_t* from){
 
 //! Додати С-стрічку в кінець.
 int my_str_append_cstr(my_str_t* str, const char* from){
-    if (!str || !from) {
+    if (!str || !str->data || !from) {
         errno = EFAULT;
         return FAILURE;
     }
 
     int len = cstr_len(from);
 
-    if (str->capacity_m - str->size_m < len) {
-        errno = EINVAL;
-        return FAILURE;
+    if (str->capacity_m < len + str->size_m){
+        if (len + str->size_m < 2 * str->capacity_m)
+            my_str_reserve(str, str->capacity_m * 2);
+        else
+            my_str_reserve(str, str->size_m + len);
     }
 
     for (int i = 0; i < len; i++)
@@ -310,17 +403,17 @@ int my_str_append_cstr(my_str_t* str, const char* from){
 //! Порівняти стрічки, повернути 0, якщо рівні (за вмістом!)
 //! від'ємне значення, якщо перша менша, додатнє -- якщо друга.
 int my_str_cmp(my_str_t* str1, const char* str2){
-    if (!str1){
+    if (!str1 || !str1->data || !str2){
         errno = EFAULT;
         return FAILURE;
     }
 
     int counter = 0;
     for (size_t i = 0; i < str1->size_m; i ++){
-        if (*(str2 + i) == '\0')
-            return str1->size_m - counter;
         if (*(str2 + i) == *(str1->data + i))
             counter ++;
+        if (*(str2 + i + 1) == '\0')
+            return str1->size_m - counter;
     }
     int str2_len = str1->size_m;
     while(*(str2 + str2_len++)){}
@@ -330,7 +423,7 @@ int my_str_cmp(my_str_t* str1, const char* str2){
 
 //! Скопіювати підстрічку, із beg включно, по end не включно ([beg, end)).
 int my_str_substr(const my_str_t* str, my_str_t* to, size_t beg, size_t end){
-    if (!str || !to){
+    if (!str || !str->data || !to || !to->data){
         errno = EFAULT;
         return FAILURE;
     }
@@ -342,11 +435,17 @@ int my_str_substr(const my_str_t* str, my_str_t* to, size_t beg, size_t end){
     else
         stop = end;
 
-    if((to->capacity_m < (stop - beg)) || (beg >= str_size)){
+    if (beg >= str_size){
         errno = EINVAL;
         return FAILURE;
     }
 
+    if ((to->capacity_m < stop - beg + to->size_m)){
+        if (stop - beg + to->size_m < 2 * to->capacity_m)
+            my_str_reserve(to, to->capacity_m * 2);
+        else
+            my_str_reserve(to, to->size_m + stop - beg);
+    }
     my_str_clear(to);
     for (size_t i = beg; i < stop; i++)
         my_str_pushback(to, (char)my_str_getc(str, i));
@@ -364,7 +463,7 @@ const char* my_str_get_cstr(my_str_t* str) {
 
 //! Знайти першу підстрічку в стрічці, повернути номер її початку або -1u, якщо не знайдено.
 size_t my_str_find(const my_str_t* str, const my_str_t* tofind, size_t from){
-    if (!str || !tofind) {
+    if (!str || !str->data || !tofind || !tofind->data) {
         errno = EFAULT;
         return (size_t)((unsigned)FAILURE);
     }
@@ -392,7 +491,7 @@ size_t my_str_find(const my_str_t* str, const my_str_t* tofind, size_t from){
 //! або FAILUREu, якщо не знайдено. from -- місце, з якого починати шукати.
 //! Якщо більше за розмір -- вважати, що не знайдено.
 size_t my_str_find_c(const my_str_t* str, char tofind, size_t from){
-    if (!str) {
+    if (!str || !str->data) {
         errno = EFAULT;
         return (size_t)((unsigned)FAILURE);
     }
@@ -412,7 +511,7 @@ size_t my_str_find_c(const my_str_t* str, char tofind, size_t from){
 //! Знайти символ в стрічці, для якого передана
 //! функція повернула true, повернути його номер
 size_t my_str_find_if(const my_str_t* str, int (*predicate)(char)){
-    if (!str) {
+    if (!str || !str->data) {
         errno = EFAULT;
         return (size_t)((unsigned)FAILURE);
     }
@@ -428,7 +527,7 @@ size_t my_str_find_if(const my_str_t* str, int (*predicate)(char)){
 //! якщо сталися помилки.
 //! the name of function was changed
 int my_str_read_file_until_end(my_str_t* str, FILE* file) {
-    if (!str || !file) {
+    if (!str || !str->data || !file) {
         errno = EFAULT;
         return FAILURE;
     }
@@ -442,7 +541,7 @@ int my_str_read_file_until_end(my_str_t* str, FILE* file) {
 
 //! Аналог my_str_read_file, із stdin
 int my_str_read(my_str_t* str){
-    if (!str){
+    if (!str || !str->data){
         errno = EFAULT;
         return FAILURE;
     }
@@ -454,6 +553,25 @@ int my_str_read(my_str_t* str){
     return EXIT_SUCCESS;
 }
 
+int my_str_read_file_delim(my_str_t* str, FILE* file, char delimiter){
+    if(!str || !file){
+        errno = EFAULT;
+        return FAILURE;
+    }
+
+    int ch;
+    while (1){
+        int res = (ch = getc(file));
+        if(ch == delimiter || res == EOF)
+            return EXIT_SUCCESS;
+
+        if(str->size_m == str->capacity_m)
+            my_str_reserve(str, (str->capacity_m)*2);
+
+        my_str_pushback(str, (char)ch);
+    }
+}
+
 
 //!
 //! FUNCTIONS ADDED TO THE INTERFACE
@@ -461,7 +579,7 @@ int my_str_read(my_str_t* str){
 
 //! Removes character in position <pos> from string
 int my_str_remove_c(my_str_t* str, size_t pos) {
-    if (!str) {
+    if (!str || !str->data) {
         errno = EFAULT;
         return FAILURE;
     }
@@ -484,7 +602,7 @@ int my_str_remove_c(my_str_t* str, size_t pos) {
 
 //! Reads file till the blankspace
 int my_str_read_file_until_blankspace(my_str_t* str, FILE* file) {
-    if (!str || !file) {
+    if (!str || !str->data || !file) {
         errno = EFAULT;
         return FAILURE;
     }
@@ -503,7 +621,7 @@ int my_str_read_file_until_blankspace(my_str_t* str, FILE* file) {
 
 //! Prints a string
 int my_str_print(const my_str_t* str){
-    if (!str){
+    if (!str || !str->data){
         errno = EFAULT;
         return FAILURE;
     }

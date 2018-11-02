@@ -15,8 +15,10 @@ typedef struct
 } my_str_t;
 
 int my_str_reserve(my_str_t* str, size_t buf_size);
+int my_str_shrink_to_fit(my_str_t* str);
+int my_str_resize(my_str_t* str, size_t new_size, char sym);
 int my_str_create(my_str_t* str, size_t buf_size);
-int my_str_from_cstr(my_str_t* str, const char* cstr, size_t buf_size);
+int my_str_from_cstr(my_str_t* str, const char* cstr);
 int my_str_print(const my_str_t* str);
 void my_str_free(my_str_t* str);
 size_t my_str_size(const my_str_t* str);
@@ -40,6 +42,7 @@ size_t my_str_find(const my_str_t* str, const my_str_t* tofind, size_t from);
 size_t my_str_find_c(const my_str_t* str, char tofind, size_t from);
 size_t my_str_find_if(const my_str_t* str, int (*predicat)(char));
 int my_str_read_file_until_end(my_str_t* str, FILE* file);
+int my_str_read_file_delim(my_str_t* str, FILE* file, char delimiter);
 int my_str_read_file_until_blankspace(my_str_t* str, FILE* file);
 int my_str_remove_c(my_str_t* str, size_t pos);
 int my_str_read(my_str_t* str);
