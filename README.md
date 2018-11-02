@@ -1,4 +1,4 @@
-# Structure String
+# Structure Dynamic String
 > implementation of CString
 
 Version of C-String, but without \0
