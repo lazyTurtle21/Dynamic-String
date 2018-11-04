@@ -1,7 +1,7 @@
 # Structure Dynamic String
 > implementation of CString
 
-Version of C-String, but without \0
+Dynamic version of C-String, but without \0
 
 ## Building
 ### Libraries
