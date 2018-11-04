@@ -31,14 +31,14 @@ int main() {
     printf("\nFunction to test: my_str_size\n");
     printf("String: ");
     my_str_print(&str_1);
-    int size = my_str_size(&str_1);
-    printf("Function returned: %i\n\n", size);
+    size_t size = my_str_size(&str_1);
+    printf("Function returned: %zu\n\n", size);
 
     printf("Function to test: my_str_capacity\n");
     printf("String: ");
     my_str_print(&str_1);
-    int cap = my_str_capacity(&str_1);
-    printf("Function returned: %i\n\n", cap);
+    size_t cap = my_str_capacity(&str_1);
+    printf("Function returned: %zu\n\n", cap);
 
     printf("Function to test: my_str_getc\n");
     printf("String: ");
@@ -70,12 +70,12 @@ int main() {
     printf("Reserve is true\nFunction returned: %i\n", copy1);
     printf("Copied string: ");
     my_str_print(&str_3);
-    printf("Buffer size: %i\n\n", my_str_capacity(&str_3));
+    printf("Buffer size: %zd\n\n", my_str_capacity(&str_3));
     int copy2 = my_str_copy(&str_1, &str_3, 0);
     printf("Reserve is false\nFunction returned: %i\n", copy2);
     printf("Copied string: ");
     my_str_print(&str_3);
-    printf("Buffer size: %i\n\n", my_str_capacity(&str_3));
+    printf("Buffer size: %zu\n\n", my_str_capacity(&str_3));
 
 
     printf("Function to test: my_str_cmp\n");
@@ -124,7 +124,7 @@ int main() {
     printf("Function to test: my_str_insert\n");
     printf("String: ");
     my_str_print(&str_1);
-    printf("Buffer size: %i\n", my_str_capacity(&str_1));
+    printf("Buffer size: %zu\n", my_str_capacity(&str_1));
     char s_to_insert[] = "ssssssssssssssssssssssssss";
     my_str_t str_5;
     my_str_create(&str_5, 10);
@@ -187,27 +187,27 @@ int main() {
     my_str_t to_find1;
     my_str_create(&to_find1, 5);
     my_str_from_cstr(&to_find1, "ss");
-    int f1 = my_str_find(&str_1, &to_find1, 40);
-    printf("Searching for 'ss' from index 40\nFunction returned: %i\n", f1);
-    int f2 = my_str_find(&str_1, &to_find1, 0);
-    printf("Searching for 'ss' from index 0\nFunction returned: %i\n\n", f2);
+    size_t f1 = my_str_find(&str_1, &to_find1, 40);
+    printf("Searching for 'ss' from index 40\nFunction returned: %zu\n", f1);
+    size_t f2 = my_str_find(&str_1, &to_find1, 0);
+    printf("Searching for 'ss' from index 0\nFunction returned: %zu\n\n", f2);
     my_str_free(&to_find1);
 
     printf("Function to test: my_str_find_c\n");
     printf("String: ");
     my_str_print(&str_1);
-    int f3 = my_str_find_c(&str_1, 't', 50);
-    printf("Searching for 't' from index 50\nFunction returned: %i\n", f3);
-    int f4 = my_str_find_c(&str_1, 't', 0);
-    printf("Searching for 't' from index 0\nFunction returned: %i\n\n", f4);
+    size_t f3 = my_str_find_c(&str_1, 't', 50);
+    printf("Searching for 't' from index 50\nFunction returned: %zu\n", f3);
+    size_t f4 = my_str_find_c(&str_1, 't', 0);
+    printf("Searching for 't' from index 0\nFunction returned: %zu\n\n", f4);
 
     printf("Function to test: my_str_find_if\n");
     printf("String: ");
     my_str_print(&str_1);
-    int f5 = my_str_find_if(&str_1, is_digit);
-    printf("Searching for digit\nFunction returned: %i\n", f5);
-    int f6 = my_str_find_if(&str_1, is_vowel);
-    printf("Searching for vowel\nFunction returned: %i\n\n", f6);
+    size_t f5 = my_str_find_if(&str_1, is_digit);
+    printf("Searching for digit\nFunction returned: %zu\n", f5);
+    size_t f6 = my_str_find_if(&str_1, is_vowel);
+    printf("Searching for vowel\nFunction returned: %zu\n\n", f6);
 
     printf("Function to test: my_str_substr\n");
     printf("String: ");
@@ -244,19 +244,19 @@ int main() {
     printf("Function to test: my_str_reserve\n");
     printf("String: ");
     my_str_print(&str_1);
-    printf("Buffer size: %i\n", my_str_capacity(&str_1));
+    printf("Buffer size: %zu\n", my_str_capacity(&str_1));
     my_str_reserve(&str_1, 20);
-    printf("Buffer size after reserve 20: %i\n", my_str_capacity(&str_1));
+    printf("Buffer size after reserve 20: %zu\n", my_str_capacity(&str_1));
     my_str_reserve(&str_1, 100);
-    printf("Buffer size after reserve 100: %i\n\n", my_str_capacity(&str_1));
+    printf("Buffer size after reserve 100: %zu\n\n", my_str_capacity(&str_1));
 
 
     printf("Function to test: my_str_shrink_to_fit\n");
     printf("String: ");
     my_str_print(&str_1);
-    printf("Buffer size: %i\n", my_str_capacity(&str_1));
+    printf("Buffer size: %zu\n", my_str_capacity(&str_1));
     my_str_shrink_to_fit(&str_1);
-    printf("Buffer size after my_str_shrink_to_fit(): %i\n\n", my_str_capacity(&str_1));
+    printf("Buffer size after my_str_shrink_to_fit(): %zu\n\n", my_str_capacity(&str_1));
 
     printf("Function to test: my_str_resize\n");
     printf("String: ");
@@ -316,12 +316,13 @@ int main() {
     }
 
     printf("Function to test: my_str_read_file_delim\n");
+    my_str_free(&f_str); //----
     my_str_create(&f_str, 100);
     file = fopen("test.txt", "r");
     if (file) {
         int read1 = my_str_read_file_delim(&f_str, file, 'e');
-        printf("String in file: 'Time is money.'\nDelim is 's'\nFunction returned: "
-                       "%i\nString received from 'test.txt': ", read1);
+        printf("String in file: 'Time is money.'\nDelimiter is 's'\nFunction returned: "
+               "%i\nString received from 'test.txt': ", read1);
         my_str_print(&f_str);
         printf("\n\n");
         fclose(file);
