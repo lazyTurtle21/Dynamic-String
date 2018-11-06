@@ -32,7 +32,7 @@ AFTER Building:
 To run a file - run the corresponding .bat file in directory examples:
 ```sh
 # * - is the name of the .exe file you want to run
-*_runner path_to_your_input_file/filename.txt path_to_your_output_file/filename.txt
+*_runner
 ```
 
 For instance, if you want to run second_task.exe:
