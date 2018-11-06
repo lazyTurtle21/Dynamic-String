@@ -70,7 +70,7 @@ int main() {
     printf("Reserve is true\nFunction returned: %i\n", copy1);
     printf("Copied string: ");
     my_str_print(&str_3);
-    printf("Buffer size: %zd\n\n", my_str_capacity(&str_3));
+    printf("Buffer size: %zu\n\n", my_str_capacity(&str_3));
     int copy2 = my_str_copy(&str_1, &str_3, 0);
     printf("Reserve is false\nFunction returned: %i\n", copy2);
     printf("Copied string: ");
@@ -321,8 +321,8 @@ int main() {
     file = fopen("test.txt", "r");
     if (file) {
         int read1 = my_str_read_file_delim(&f_str, file, 'e');
-        printf("String in file: 'Time is money.'\nDelimiter is 's'\nFunction returned: "
-               "%i\nString received from 'test.txt': ", read1);
+        printf("String in file: 'Time is money.'\nDelimiter is 'e'\nFunction returned: "
+                       "%i\nString received from 'test.txt': ", read1);
         my_str_print(&f_str);
         printf("\n\n");
         fclose(file);
