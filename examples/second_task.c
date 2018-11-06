@@ -29,15 +29,13 @@ int main(int argc, char * argv[]) {
     }
 
     my_str_t word;
-
+    
     if (my_str_create(&word, 128)){
         fprintf(stderr, "Unable to create string: %s\n", strerror(errno));
         return FAILURE;
     }
 
     while (my_str_read_file_until_blankspace(&word, input) != -1){
-        my_str_pushback(&word, ' ');
-
         for (size_t i = 0; i < word.size_m; i++) {
             if (ispunct(my_str_getc(&word, i))) {
                 my_str_remove_c(&word, i);
@@ -46,6 +44,8 @@ int main(int argc, char * argv[]) {
             if (isupper(my_str_getc(&word, i)))
                 my_str_putc(&word, i, (char)tolower(my_str_getc(&word, i)));
         }
+        if (!my_str_empty(&word))
+            my_str_pushback(&word, ' ');
 
         write_data(output, my_str_get_cstr(&word));
         my_str_clear(&word);
